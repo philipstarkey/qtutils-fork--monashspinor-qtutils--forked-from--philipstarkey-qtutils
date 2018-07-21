@@ -50,7 +50,6 @@ def _add_fonts():
             QFontDatabase.addApplicationFont(path)
     _fonts_initalised = True
 
-
 GREY = GRAY = '#75715E' 
 BACKGROUND = '#141411'
 WHITE = '#FFFFFF'
@@ -61,13 +60,14 @@ GREEN = '#A6E22E'
 BLUE = '#66D9EF'
 PURPLE = '#AE81FF'
 
+# value: (color, bold?, italic?)
 loghighlighting = {
-    'trace': PURPLE,
-    'debug': GRAY,
-    'info':  GREEN,
-    'warn':  ORANGE,
-    'error': YELLOW,
-    'fatal': RED,
+    'trace': (PURPLE, False, False),
+    'debug': (GRAY,   False, False),
+    'info':  (GREEN,  False, False),
+    'warn':  (ORANGE, True,  False),
+    'error': (YELLOW, True,  False),
+    'fatal': (RED,    True,  True)
     }
 
 _charformats = {}
@@ -111,10 +111,15 @@ class Highlighter(QSyntaxHighlighter):
         self.errorFormat = QTextCharFormat()
         self.errorFormat.setForeground(QColor(YELLOW))
         self.highlightingrules = []
-        for level, color in loghighlighting.items():
+        for level, colorbolditalic in loghighlighting.items():
+            color, bold, italic = colorbolditalic
             pattern = '\[{:s}\]\s.*$'.format(level)
             #format = charformats((color, False, False)) # no bold, no italic
+            font = QFont("Ubuntu Mono", FONT_SIZE)
+            font.setBold(bold)
+            font.setItalic(italic)
             format = QTextCharFormat() # no bold, no italic
+            format.setFont(font)
             format.setForeground(QColor(color))
             self.highlightingrules.append((pattern, format))
             
@@ -122,7 +127,7 @@ class Highlighter(QSyntaxHighlighter):
         # uncomment this line for Python2
         # text = unicode(text)
         for pattern, format in self.highlightingrules:
-             expression = QRegExp( pattern )
+            expression = QRegExp( pattern )
             index = expression.indexIn( text, 0 )
             while index >= 0:
                 index = expression.pos(0) 
@@ -363,7 +368,6 @@ if __name__ == '__main__':
 
     output_box.print("This sentence is produced with print and ends in carriage return and should be overwritten and not be visible at all...",end="\r")
     output_box.print("This should overwrite with print and then move on to the next line")
-
     output_box.write("this is an [error] This error should be coloured yellow\n")
     output_box.write("[warn] This warning should be coloured orange\n")
 
