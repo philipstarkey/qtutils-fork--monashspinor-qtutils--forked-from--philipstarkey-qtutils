@@ -61,6 +61,14 @@ GREEN = '#A6E22E'
 BLUE = '#66D9EF'
 PURPLE = '#AE81FF'
 
+loghighlighting = {
+    'trace': PURPLE,
+    'debug': GRAY,
+    'info':  GREEN,
+    'warn':  ORANGE,
+    'error': YELLOW,
+    'fatal': RED,
+    }
 
 _charformats = {}
 
@@ -95,9 +103,35 @@ def charformats(charformat_repr):
     _charformats[color, bold, italic] = fmt
     return fmt
 
+class Highlighter(QSyntaxHighlighter):
+    def __init__(self, parent):
+        super(Highlighter, self).__init__(parent)
+        self.warningFormat = QTextCharFormat()
+        self.warningFormat.setForeground(QColor(ORANGE))
+        self.errorFormat = QTextCharFormat()
+        self.errorFormat.setForeground(QColor(YELLOW))
+        self.highlightingrules = []
+        for level, color in loghighlighting.items():
+            pattern = '\[{:s}\]\s.*$'.format(level)
+            #format = charformats((color, False, False)) # no bold, no italic
+            format = QTextCharFormat() # no bold, no italic
+            format.setForeground(QColor(color))
+            self.highlightingrules.append((pattern, format))
+            
+    def highlightBlock(self, text):
+        # uncomment this line for Python2
+        # text = unicode(text)
+        for pattern, format in self.highlightingrules:
+             expression = QRegExp( pattern )
+            index = expression.indexIn( text, 0 )
+            while index >= 0:
+                index = expression.pos(0) 
+                length = len(expression.cap(0))
+                self.setFormat(index, length, format)
+                index = expression.indexIn(text, index + length)
+            self.setCurrentBlockState( 0 )
 
 class OutputBox(object):
-
     # enum for keeping track of partial lines and carriage returns:
     LINE_START = 0
     LINE_MID = 1
@@ -110,6 +144,7 @@ class OutputBox(object):
         sockets, otherwise zmq.Context.instance() will be used. set
         bind_address, defaulting to the local interface."""
         self.output_textedit = QPlainTextEdit()
+        self.highlighter = Highlighter(self.output_textedit.document())
         container.addWidget(self.output_textedit)
         self.output_textedit.setReadOnly(True)
         palette = self.output_textedit.palette()
@@ -329,6 +364,10 @@ if __name__ == '__main__':
     output_box.print("This sentence is produced with print and ends in carriage return and should be overwritten and not be visible at all...",end="\r")
     output_box.print("This should overwrite with print and then move on to the next line")
 
+    output_box.write("this is an [error] This error should be coloured yellow\n")
+    output_box.write("[warn] This warning should be coloured orange\n")
+
+    
     def button_pushed(*args, **kwargs):
         import random
         uchars = [random.randint(0x20, 0x7e) for _ in range(random.randint(0, 50))]
