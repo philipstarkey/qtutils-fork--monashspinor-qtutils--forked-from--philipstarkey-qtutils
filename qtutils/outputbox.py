@@ -72,6 +72,10 @@ loghighlighting = {
 
 _charformats = {}
 
+# This function is a bit of a swiss army knife, The memoization is fine, but
+# the decoding the repr should be done in the caller once it comes off the zmq wire.
+# Not refactoed for now as it also accepts 'stderr' as a charformat and falls back to white on others...
+# Really should be two functions
 def charformats(charformat_repr):
     try:
         color, bold, italic = ast.literal_eval(charformat_repr)
@@ -88,7 +92,7 @@ def charformats(charformat_repr):
     #if __debug__: print("Adding new {:s}-{:s}-{:s}".format(color,str(bold),str(italic)))
     try:
         qcolor = QColor(color)
-    except Exception:           # invalid color, use white:
+    except Exception:                         # invalid color, use white
         qcolor = QColor(WHITE)
     if not _fonts_initalised:
         _add_fonts()
