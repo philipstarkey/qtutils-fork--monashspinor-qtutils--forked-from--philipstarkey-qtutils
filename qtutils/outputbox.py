@@ -74,31 +74,29 @@ _charformats = {}
 
 def charformats(charformat_repr):
     try:
-        return _charformats[charformat_repr]
-    except KeyError:
-        pass
-    try:
         color, bold, italic = ast.literal_eval(charformat_repr)
+        try:
+            return _charformats[color, bold, italic]
+        except KeyError:
+            pass
     except Exception:
         if charformat_repr == 'stderr':
             color, bold, italic = 'red', False, False
         else:
             # stdout, or invalid spec. Use plain font:
             color, bold, italic = WHITE, False, False
+    #if __debug__: print("Adding new {:s}-{:s}-{:s}".format(color,str(bold),str(italic)))
     try:
         qcolor = QColor(color)
-    except Exception:
-        # invalid color, use white:
+    except Exception:           # invalid color, use white:
         qcolor = QColor(WHITE)
-
     if not _fonts_initalised:
         _add_fonts()
-
-    font = QFont("Ubuntu Mono", FONT_SIZE)
+    font = QFont("Ubuntu Mono", FONT_SIZE)    # Code smell: fontname is magic string
     font.setBold(bold)
     font.setItalic(italic)
     fmt = QTextCharFormat()
-    fmt.setForeground(QBrush(qcolor))
+    fmt.setForeground(QColor(qcolor))
     fmt.setFont(font)
     _charformats[color, bold, italic] = fmt
     return fmt
@@ -112,20 +110,13 @@ class Highlighter(QSyntaxHighlighter):
         self.errorFormat.setForeground(QColor(YELLOW))
         self.highlightingrules = []
         for level, colorbolditalic in loghighlighting.items():
-            color, bold, italic = colorbolditalic
             pattern = '\[{:s}\]\s.*$'.format(level)
-            #format = charformats((color, False, False)) # no bold, no italic
-            font = QFont("Ubuntu Mono", FONT_SIZE)
-            font.setBold(bold)
-            font.setItalic(italic)
-            format = QTextCharFormat() # no bold, no italic
-            format.setFont(font)
-            format.setForeground(QColor(color))
+            format = charformats(repr(colorbolditalic))
             self.highlightingrules.append((pattern, format))
             
     def highlightBlock(self, text):
-        # uncomment this line for Python2
-        # text = unicode(text)
+        if PY2:
+            text = unicode(text)
         for pattern, format in self.highlightingrules:
             expression = QRegExp( pattern )
             index = expression.indexIn( text, 0 )
@@ -362,15 +353,21 @@ if __name__ == '__main__':
             output_box.print('submitting to BLACS in yellow...', color=YELLOW, italic=True, end='')
             output_box.print('success in bold green', color=GREEN, bold=True, italic=True)
             output_box.print('warning: queue is paused in orange', color=ORANGE, italic=True)
-    
+
+    # Tests for carriage-return handling
     output_box.write("This sentence ends in a carriage return and should be overwritten and not be visible at all...\r")
     output_box.write("This should overwrite and then move on to the next line\n")
 
     output_box.print("This sentence is produced with print and ends in carriage return and should be overwritten and not be visible at all...",end="\r")
     output_box.print("This should overwrite with print and then move on to the next line")
-    output_box.write("this is an [error] This error should be coloured yellow\n")
-    output_box.write("[warn] This warning should be coloured orange\n")
 
+    # Tests for syntax highlighting
+    output_box.write("[trace] This is tracing, should stand out because it's not normally on\n")
+    output_box.write("[debug] This is debugging. Should be deemphasised.\n")
+    output_box.write("[info] This is normal informative text, when the system has something helpful to say\n")
+    output_box.write("This is an [error] This error should be coloured yellow\n")
+    output_box.write("[warn] This warning should be coloured orange\n")
+    output_box.write("[fatal] This is a very serious error!\n")
     
     def button_pushed(*args, **kwargs):
         import random
@@ -380,7 +377,7 @@ if __name__ == '__main__':
             ustr += chr(uc)
         red = random.randint(0, 1)
         newline = random.randint(0, 1)
-        hex = __builtins__.hex
+        #hex = __builtins__.hex
         color = '#' + hex(random.randint(0, 0xffffff))[2:]
         bold = random.randint(0, 1)
         italic = random.randint(0, 1)
